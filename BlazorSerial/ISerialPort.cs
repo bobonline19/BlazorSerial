@@ -12,6 +12,8 @@ namespace BlazorSerial
         Task<bool> IsSupported();
         Task<RequestPortResponseEnum> RequestPort();
         Task Write(string text);
+
+        Task<string> ReadLineAsync();
         Task Close();
     }
 }

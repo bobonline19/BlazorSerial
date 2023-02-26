@@ -1,6 +1,11 @@
 var blazorSerialPort;
 var blazorSerialTextEncoder = new TextEncoder();
 
+let reader;
+let inputDone;
+let outputDone;
+
+
 function blazorSerialIsSupported() {
     return navigator.serial ? true : false;
 }
@@ -26,6 +31,14 @@ async function blazorSerialGetPort() {
 async function blazorSerialOpen(baudRate) {
     try {
         await blazorSerialPort.open({ baudRate: baudRate });
+
+        let decoder = new TextDecoderStream();
+        inputDone = port.readable.pipeTo(decoder.writable);
+        inputStream = decoder.readable
+        .pipeThrough(new TransformStream(new LineBreakTransformer()));
+    
+      reader = inputStream.getReader();
+
         return "Ok";
     }
     catch (ex) {
@@ -47,6 +60,49 @@ function blazorSerialWriteText(text) {
     writer.releaseLock();
 }
 
-function blazorSerialClose() {
+async function blazorSerialReadLineAsync() {
+    const { value, done } = await reader.read();
+    if (value) {
+        return value;    
+    }
+    if (done) {
+      console.log('[readLoop] DONE', done);
+      reader.releaseLock();
+      return null;
+    }
+}
+
+async function blazorSerialClose() {
+    if (reader) {
+        await reader.cancel();
+        await inputDone.catch(() => {});
+        reader = null;
+        inputDone = null;
+      }
+
     blazorSerialPort.close();
+}
+
+/**
+ * @name LineBreakTransformer
+ * TransformStream to parse the stream into lines.
+ */
+class LineBreakTransformer {
+  constructor() {
+    // A container for holding stream data until a new line.
+    this.container = '';
+  }
+
+  transform(chunk, controller) {
+    // CODELAB: Handle incoming chunk
+this.container += chunk;
+const lines = this.container.split('\r\n');
+this.container = lines.pop();
+lines.forEach(line => controller.enqueue(line));
+  }
+
+  flush(controller) {
+    // CODELAB: Flush the stream.
+controller.enqueue(this.container);
+  }
 }

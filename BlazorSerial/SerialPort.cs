@@ -64,5 +64,7 @@ namespace BlazorSerial
         }
 
         public async Task Write(string text) => await _jsRuntime.InvokeAsync<string>("blazorSerialWriteText", text);
+
+        public async Task<string> ReadLineAsync() => await _jsRuntime.InvokeAsync<string>("blazorSerialReadLineAsync");
     }
 }
